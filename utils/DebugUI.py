@@ -51,14 +51,13 @@ class DebugUI(QWidget):
 			print('This GUI supports Win/Linux/MacOS only')
 
 	def configureDAQ(self):
-		self.daq_configured = True
 		self.configure_button.setDisabled(True)
-		self.destroy_button.setDisabled(False)
+		#self.clear_button.setDisabled(False)
 		self.daq.configureDAQ()
 
 	def destroyDAQ(self):
 		self.daq_configured = False
-		self.destroy_button.setDisabled(True)
+		self.clear_button.setDisabled(True)
 		self.configure_button.setDisabled(False)
 		self.daq.destroyDAQ()
 
@@ -86,18 +85,27 @@ class DebugUI(QWidget):
 		self.test_table.setItem(self.test_table.rowCount() - 1, 1, item_address)
 		self.test_table.setItem(self.test_table.rowCount() - 1, 2, item_value)
 
+	def clear(self):
+		self.test_table.clear()
+		self.test_table.setRowCount(0)
+		self.test_table.setColumnCount(3)
+		self.test_table.setHorizontalHeaderLabels(['Command', 'Address', 'Value'])
+
 	def run(self):
 		self.daq.commands = [tuple([self.test_table.item(i, j).text() for j in range(3)]) for i in range(self.test_table.rowCount())]
 		self.daq.runTest()
-		print('Done')
+
+	def quit(self):
+		self.daq.quitTest()
+		print("Quitting...")
 
 	def createMainWindow(self):
 		self.configure_button = QPushButton('Configure DAQ')
 		self.configure_button.clicked.connect(self.configureDAQ)
 
-		self.destroy_button = QPushButton('Destroy DAQ')
-		self.destroy_button.clicked.connect(self.destroyDAQ)
-		self.destroy_button.setDisabled(True)
+		self.clear_button = QPushButton('&Clear')
+		self.clear_button.clicked.connect(self.clear)
+		self.clear_button.setDisabled(False)
 
 		self.command_buttons = []
 		self.command_buttons.append(QPushButton('Reset FIFO'))
@@ -115,11 +123,15 @@ class DebugUI(QWidget):
 		self.test_table.setColumnCount(3)
 		self.test_table.setHorizontalHeaderLabels(['Command', 'Address', 'Value'])
 
-		self.exit_button = QPushButton('Exit')
+		self.exit_button = QPushButton('&Exit')
 		self.exit_button.clicked.connect(self.close)
 
-		self.run_button = QPushButton('Run')
+		self.run_button = QPushButton('&Run')
 		self.run_button.clicked.connect(self.run)
+
+		self.quit_button = QPushButton('&Quit Test')
+		self.quit_button.clicked.connect(self.quit)
+		
 
 		layout = QGridLayout()
 		layout.setSpacing(20)
@@ -128,8 +140,9 @@ class DebugUI(QWidget):
 			layout.addWidget(b, 2, i+1, 1, 1)
 		layout.addWidget(self.test_table, 3, 1, 4, 3)
 		layout.addWidget(self.configure_button, 7, 1, 1, 1)
-		layout.addWidget(self.destroy_button, 7, 2, 1, 1)
+		layout.addWidget(self.clear_button, 7, 2, 1, 1)
 		layout.addWidget(self.run_button, 8, 1, 1, 1)
+		layout.addWidget(self.quit_button, 8, 2, 1, 1)
 		layout.addWidget(self.exit_button, 8, 5, 1, 1)
 
 

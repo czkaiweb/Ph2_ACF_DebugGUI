@@ -7,12 +7,14 @@ from PyQt5.QtWidgets import (QAbstractItemView, QApplication, QCheckBox, QComboB
 		QSlider, QSpinBox, QStyleFactory, QTableView, QTableWidget, QTableWidgetItem, QTabWidget, QTextEdit, QTreeWidget, QHBoxLayout,
 		QVBoxLayout, QWidget, QMainWindow, QMessageBox, QSplitter)
 
+import os
+
 available_commands = {
 	# command name : (default address, default value)
 	'Reset FIFO' : (None, None),
 	'Flush FIFO' : (None, None),
-	'Read Register' : (None, None),
-	'Write Register' : (None, None),
+	'Read Register' : ("", None),
+	'Write Register' : ("", ""),
 	'Sleep (us)' : (None, 50)
 }
 
@@ -21,9 +23,10 @@ class Message:
 		self.op_code = op_code
 		self.data = data
 
-class DAQEventHandler:
+class DAQEventHandler(QWidget):
 	def __init__(self):
-		#self.isConfigured = False
+		super(DAQEventHandler,self).__init__()
+		self.isConfigured = False
 		self.commands = []
 
 		self.run_process = QProcess(self)
@@ -37,17 +40,22 @@ class DAQEventHandler:
 
 	def configureDAQ(self):
 		self.runDAQ()
-		self.isConfigured = True
+		#self.isConfigured = True
 		print('configureDAQ() ...')
 
 	def destroyDAQ(self):
 		self.isConfigured = False
 		print('destroyDAQ() ...')
 
+	def quitTest(self):
+		self.run_process.write(bytes("QUIT\n",encoding='utf8'))
+		return
+
 	def runTest(self):
 		if not self.isConfigured:
 			print('DAQEventHander: not configured!')
 			self.configureDAQ()
+			return
 
 		#for cmd_name, cmd_address, cmd_value in self.commands:
 		#	if cmd_name == 'Reset FIFO':
@@ -62,41 +70,48 @@ class DAQEventHandler:
 		#		print('Sleeping', cmd_value, 'us...')
 		#	else:
 		#		print('Unknown command...')
+		
+		if len(self.commands) == 0:
+			#self.run_process.write(bytes("QUIT\n",encoding='utf8'))
+			#self.run_process.waitForBytesWritten()
+			return
+			#self.run_process.closeWriteChannel()
+
 		cmd_name, reg_name, reg_value = self.commands.pop(0)
 		if cmd_name == 'Reset FIFO':
 			print("Reset FIFO...\n")
-			self.run_process.write("RESET;;")
+			self.run_process.write(bytes("RESET;;;\n",encoding='utf8'))
 			self.run_process.waitForBytesWritten()
-			self.run_process.closeWriteChannel()
+			#self.run_process.closeWriteChannel()
 		elif cmd_name == 'Flush FIFO':
 			print('Flush FIFO...')
-			self.run_process.write("FLUSH;;")
+			self.run_process.write(bytes("FLUSH;;;\n",encoding='utf8'))
 			self.run_process.waitForBytesWritten()
-			self.run_process.closeWriteChannel()
+			#self.run_process.closeWriteChannel()
 		elif cmd_name == 'Read Register':
 			if reg_name == None:
 				print("No register given, continue...")
 			else:
 				print('Read register:', reg_name)
-				self.run_process.write("READ;{};;".format(reg_name))
+				self.run_process.write(bytes("READ;{};;\n".format(reg_name),encoding='utf8'))
 				self.run_process.waitForBytesWritten()
-				self.run_process.closeWriteChannel()
+				#self.run_process.closeWriteChannel()
 		elif cmd_name == 'Write Register':
 			if reg_name == None or reg_value == None:
 				print("No register name or value given, continue...")
 			else:
 				print('Write value', reg_value, 'to register', reg_name)
-				self.run_process.write("WRITE;{};{};".format(reg_name, reg_value))
+				self.run_process.write(bytes("WRITE;{};{};\n".format(reg_name, reg_value),encoding='utf8'))
 				self.run_process.waitForBytesWritten()
-				self.run_process.closeWriteChannel()
+				#self.run_process.closeWriteChannel()
 		elif cmd_name == 'Sleep (us)':
 			if reg_value == None:
 				print("No sleep time given, continue...")
 			else:
 				print('Sleeping', reg_value, 'us...')
-				self.run_process.write("SLEEP;;{};".format(reg_value))
+				self.run_process.write(bytes("SLEEP;;{};\n".format(reg_value),encoding='utf8'))
 				self.run_process.waitForBytesWritten()
-				self.run_process.closeWriteChannel()
+				#self.run_process.closeWriteChannel()
 		else:
 			print('Unknown command...')
 
@@ -104,10 +119,12 @@ class DAQEventHandler:
 	def on_readyReadStandardOutput(self):		
 		alltext = self.run_process.readAllStandardOutput().data().decode()
 		textline = alltext.split('\n')
-
+		for item in textline:
+			print(item)
 		for textStr in textline:
 			if "Ready to accept debug command" in textStr:
-				self.run_process.closeReadChannel()
+				self.isConfigured = True
+				#self.run_process.closeReadChannel()
 				self.runTest()
 
 			# Get the output and parse the result
